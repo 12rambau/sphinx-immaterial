@@ -4,9 +4,9 @@
 
 .. _customization:
 
-=============
-Customization
-=============
+======================================
+:si-icon:`material/cogs` Customization
+======================================
 
 Metadata for a single page
 ==========================

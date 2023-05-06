@@ -4,7 +4,7 @@
   {%- endfor -%}
 }
 {%- for icon in icons.keys() -%}
-.md-typeset .si-icon-inline.{{icon}}::before{-webkit-mask-image:var(--si-icon--{{icon}});mask-image:var(--si-icon--{{icon}});}
+.si-icon-inline.{{icon}}::before{-webkit-mask-image:var(--si-icon--{{icon}});mask-image:var(--si-icon--{{icon}});}
 {%- endfor -%}
 {%- for admonition in admonitions -%}
 {%- set name = '.' ~ admonition.name -%}

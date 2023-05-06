@@ -24,7 +24,7 @@ In particular, for each document, this module generates three separate TOCs:
 `integrated_local_toc`:
     The `integrated_local_toc` contains all sections of the current document, as
     well as any child documents referenced by a TOC contained in the current
-    document.  Whether children of the child docuemnts are included depends on
+    document.  Whether children of the child documents are included depends on
     the `globaltoc_collapse` theme option.
 
 Background
@@ -156,6 +156,7 @@ import sphinx.util.docutils
 import sphinx.util.osutil
 
 from .apidoc import object_description_options
+from .inline_icons import load_svg_into_builder_env
 
 meta_node_types: Tuple[Type[docutils.nodes.Element], ...]
 
@@ -219,7 +220,7 @@ class MkdocsNavEntry:
 
     def __init__(self, title_text: str, **kwargs):
         self.__dict__.update(kwargs)
-        self.title = f'<span class="md-ellipsis">{_insert_wbr(title_text)}</span>'
+        self.title = f'<span class="md-ellipsis">{title_text}</span>'
         if not self.aria_label:
             self.aria_label = title_text
 
@@ -238,6 +239,7 @@ class _TocVisitor(docutils.nodes.NodeVisitor):
         super().__init__(document)
         self._prev_caption: Optional[docutils.nodes.Element] = None
         self._rendered_title_text: Optional[str] = None
+        self._aria_title_text: Optional[str] = None
         self._url: Optional[str] = None
         self._builder = builder
         # List of direct children.
@@ -247,7 +249,14 @@ class _TocVisitor(docutils.nodes.NodeVisitor):
         """Returns the HTML representation of `node`."""
         if not isinstance(node, list):
             node = [node]
-        return "".join(self._builder.render_partial(x)["fragment"] for x in node)
+        result = []
+        for x in node:
+            if isinstance(x, (docutils.nodes.Text)):
+                result.append(_insert_wbr(str(x)))
+            else:
+                result.append(self._builder.render_partial(x)["fragment"])
+        self._aria_title_text = "".join([n.astext() for n in node])
+        return "".join(result)
 
     def _render_title(
         self, node: Union[docutils.nodes.Node, List[docutils.nodes.Node]]
@@ -255,7 +264,7 @@ class _TocVisitor(docutils.nodes.NodeVisitor):
         """Returns the text representation of `node`."""
         if not isinstance(node, list):
             node = [node]
-        return str(markupsafe.Markup.escape("".join(x.astext() for x in node)))
+        return "".join([self._render(el) for el in node])
 
     def visit_reference(self, node: docutils.nodes.reference):
         self._rendered_title_text = self._render_title(node.children)
@@ -296,9 +305,14 @@ class _TocVisitor(docutils.nodes.NodeVisitor):
             children = child_visitor._children
             if children:
                 url = children[0].url
+            aria_text = None
+            if self._aria_title_text is not None:
+                aria_text = self._aria_title_text
+                self._aria_title_text = None
             self._children.append(
                 MkdocsNavEntry(
                     title_text=title_text,
+                    aria_label=aria_text,
                     url=url,
                     children=children,
                     active=False,
@@ -310,8 +324,13 @@ class _TocVisitor(docutils.nodes.NodeVisitor):
         # Otherwise, just process each list_item as direct children.
 
     def get_result(self) -> MkdocsNavEntry:
+        aria_text = None
+        if self._aria_title_text is not None:
+            aria_text = self._aria_title_text
+            self._aria_title_text = None
         return MkdocsNavEntry(
             title_text=cast(str, self._rendered_title_text),
+            aria_label=aria_text,
             url=self._url,
             children=self._children,
             active=False,
